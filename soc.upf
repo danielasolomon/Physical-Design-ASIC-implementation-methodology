@@ -1,0 +1,136 @@
+# UPF DIRECTORY
+set UPF_DIR ./upf
+
+# UPF 2.1 FOR PST
+set_design_attributes -elements {.} -attribute enable_state_propagation_in_add_power_state true
+
+# SUPPLY SETS (EXPLICIT)
+create_supply_set SS
+create_supply_set A_SS
+create_supply_set IO_SS
+
+# POWER DOMAINS
+create_power_domain PD_TOP -supply {primary SS} -include_scope
+
+# POWER SWITCHES
+
+# RETENTION
+
+# ISOLATION
+
+# POWER STATE TABLE (UPF 2.1)
+# voltaje diferite
+add_power_state -supply SS        -state SS_ON        {-supply_expr {power ==  {FULL_ON 0.8} }}
+add_power_state -supply SS        -state GND          {-supply_expr {ground == {FULL_ON 0.0} }} 
+
+add_power_state -supply A_SS      -state A_SS_ON     {-supply_expr {power ==  {FULL_ON 1.8} }}
+add_power_state -supply A_SS      -state A_GND         {-supply_expr {ground == {FULL_ON 0.0} }} 
+
+add_power_state -supply IO_SS     -state IO_SS_ON     {-supply_expr {power ==  {FULL_ON 1.8} }}
+add_power_state -supply IO_SS     -state IO_GND         {-supply_expr {ground == {FULL_ON 0.0} }} 
+
+
+# REFINE PG
+#load_upf $UPF_DIR/refine_bs.upf
+
+create_supply_port VSS
+create_supply_net VSS
+connect_supply_net VSS -ports VSS 
+
+create_supply_port VDD
+create_supply_net VDD
+connect_supply_net VDD -ports VDD 
+
+create_supply_port AVDD
+create_supply_net AVDD
+connect_supply_net AVDD -ports AVDD
+
+create_supply_port AVSS
+create_supply_net AVSS
+connect_supply_net AVSS -ports AVSS 
+
+create_supply_port VSSIO
+create_supply_net VSSIO
+connect_supply_net VSSIO -ports VSSIO 
+
+create_supply_port VDDIO
+create_supply_net VDDIO
+connect_supply_net VDDIO -ports VDDIO 
+
+
+create_supply_set SS -function {power VDD} -update
+create_supply_set SS -function {ground VSS} -update
+
+create_supply_set IO_SS -function {power VDDIO} -update
+create_supply_set IO_SS -function {ground VSSIO} -update 
+
+create_supply_set A_SS -function {power AVDD} -update
+create_supply_set A_SS -function {ground AVSS} -update
+
+
+
+# SUPPLY NETS FOR INTERNAL MEMORIES 
+
+set mems_list [find_objects . -traverse_macros -pattern SRAM* -object_type model]
+
+foreach mem $mems_list { 
+    connect_supply_net VDD -ports $mem/VDD 
+    connect_supply_net VSS -ports $mem/VSS 
+}
+
+
+
+# SUPPLY NETS FOR INTERNAL GPIOs (PADs) 
+
+set pads_list [find_objects . -traverse_macros -regexp -pattern "I1025_EW|B.*I1025_EW|D.*I1025_EW" -object_type model]
+
+foreach pad $pads_list { 
+    connect_supply_net VDD -ports $pad/VDD 
+    connect_supply_net VSS -ports $pad/VSS 
+}
+
+
+
+# SUPPLY NETS FOR PLL
+
+set_related_supply_net   -object_list pll/REF_CLK      -power VDD -ground VSS
+set_related_supply_net   -object_list pll/CLK_X4       -power VDD -ground VSS
+set_related_supply_net   -object_list pll/CLK_X2       -power VDD -ground VSS
+set_related_supply_net   -object_list pll/FB_MODE      -power VDD -ground VSS
+set_related_supply_net   -object_list pll/FB_CLK       -power VDD -ground VSS
+set_related_supply_net   -object_list pll/PLL_BYPASS   -power VDD -ground VSS
+
+
+
+
+# SET SUPPLY RELATION FOR INPUT AND BIDIRECTIONAL PAD PINS
+
+set inout_pads_list [find_objects . -traverse_macros -regexp -pattern "I1025_EW|B.*I1025_EW" -object_type model]
+
+foreach pad $inout_pads_list {
+    set_related_supply_net -object_list $pad/PADIO     -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/DOUT      -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/DIN       -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/R_EN      -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/EN        -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/PULL_UP   -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/PULL_DOWN -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/VDDIO     -power VDDIO -ground VSSIO
+}
+
+
+    
+# SET SUPPLY RELATION FOR OUTPUT PAD PINS
+
+set out_pads_list [find_objects . -traverse_macros -regexp -pattern "D.*I1025_EW" -object_type model]
+
+foreach pad $out_pads_list {
+    set_related_supply_net -object_list $pad/PADIO     -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/DIN       -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/EN        -power VDD -ground VSS
+    set_related_supply_net -object_list $pad/VDDIO     -power VDDIO -ground VSSIO
+}
+
+
+
+
